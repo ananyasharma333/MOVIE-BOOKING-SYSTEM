@@ -1,0 +1,41 @@
+-- Demonstrate concurrency control with SELECT ... FOR UPDATE
+-- This prevents double booking
+
+-- Session 1: Start booking process
+START TRANSACTION;
+
+-- Check seat availability and lock the row
+SELECT s.seat_id, s.seat_row, s.seat_number
+FROM seats s
+WHERE s.seat_id IN (1, 2, 3)
+AND NOT EXISTS (
+    SELECT 1 
+    FROM booking_seats bs
+    JOIN bookings b ON bs.booking_id = b.booking_id
+    WHERE bs.seat_id = s.seat_id
+    AND b.payment_status = 'Completed'
+    FOR UPDATE
+);
+
+-- If seats are available, proceed with booking
+-- (Booking logic would go here)
+
+-- Session 2: Concurrent booking attempt
+-- This will wait until Session 1 commits or rolls back
+START TRANSACTION;
+
+-- This query will be blocked until Session 1 releases the lock
+SELECT s.seat_id, s.seat_row, s.seat_number
+FROM seats s
+WHERE s.seat_id IN (1, 2, 3)
+AND NOT EXISTS (
+    SELECT 1 
+    FROM booking_seats bs
+    JOIN bookings b ON bs.booking_id = b.booking_id
+    WHERE bs.seat_id = s.seat_id
+    AND b.payment_status = 'Completed'
+    FOR UPDATE
+);
+
+-- Complete booking
+COMMIT;
