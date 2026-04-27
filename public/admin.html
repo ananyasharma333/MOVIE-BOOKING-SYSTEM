@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — BookMyShow</title>
+  <meta name="description" content="Admin control panel for BookMyShow — manage movies, theatres, showtimes, bookings and users.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="container navbar" style="max-width:100%;padding:0 32px">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW <span class="logo-badge">ADMIN</span></a>
+    <div style="display:flex;gap:24px;align-items:center;font-size:0.82rem;color:var(--text-muted)">
+      <span id="admin-date"></span>
+    </div>
+    <div class="user-menu" id="user-menu">
+      <div class="avatar" id="admin-avatar">A</div>
+      <span id="user-name" style="font-size:0.9rem;font-weight:600">Admin</span>
+      <a href="index.html" class="btn btn-ghost btn-sm">← Front Page</a>
+      <a href="#" data-action="logout" class="btn btn-danger btn-sm">Logout</a>
+    </div>
+  </div>
+</header>
+
+<div class="admin-layout">
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <ul class="admin-nav">
+      <li><a href="#" class="active" data-section="dashboard">📊 Dashboard</a></li>
+      <li><a href="#" data-section="movies">🎬 Movies</a></li>
+      <li><a href="#" data-section="theatres">🏛 Theatres</a></li>
+      <li><a href="#" data-section="shows">📅 Showtimes</a></li>
+      <li><a href="#" data-section="bookings">🎟 Bookings</a></li>
+      <li><a href="#" data-section="users">👥 Users</a></li>
+    </ul>
+  </aside>
+
+  <main class="admin-main">
+
+    <!-- ===== DASHBOARD SECTION ===== -->
+    <div class="admin-section active" id="section-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+        <div>
+          <h1 class="admin-section-title">Dashboard Overview</h1>
+          <p class="admin-section-sub">Welcome back! Here's what's happening.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadStats()">🔄 Refresh</button>
+      </div>
+      <div class="stats-grid" id="stats-container">
+        <div class="stat-card"><div class="stat-icon stat-icon-gold">💰</div><h4>Total Revenue</h4><div class="val">--</div></div>
+        <div class="stat-card"><div class="stat-icon stat-icon-red">🎟</div><h4>Total Bookings</h4><div class="val">--</div></div>
+        <div class="stat-card"><div class="stat-icon stat-icon-blue">👥</div><h4>Registered Users</h4><div class="val">--</div></div>
+        <div class="stat-card"><div class="stat-icon stat-icon-green">📅</div><h4>Today's Bookings</h4><div class="val">--</div></div>
+        <div class="stat-card"><div class="stat-icon stat-icon-red">🎬</div><h4>Movies Listed</h4><div class="val">--</div></div>
+        <div class="stat-card"><div class="stat-icon stat-icon-blue">🏛</div><h4>Theatres</h4><div class="val">--</div></div>
+      </div>
+
+      <div class="data-table-wrap">
+        <div class="table-header">
+          <h3>Recent Bookings</h3>
+          <button class="btn btn-ghost btn-sm" onclick="showSection('bookings')">View All →</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Transaction ID</th><th>User</th><th>Movie</th><th>Show Date</th><th>Amount</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="bookings-table-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== MOVIES SECTION ===== -->
+    <div class="admin-section" id="section-movies">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+        <div>
+          <h1 class="admin-section-title">Movies</h1>
+          <p class="admin-section-sub">Manage the movie catalogue.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openMovieModal()">+ Add Movie</button>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Poster</th><th>Title</th><th>Genre</th><th>Language</th><th>Rating</th><th>Release</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="movies-table-body"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== THEATRES SECTION ===== -->
+    <div class="admin-section" id="section-theatres">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+        <div>
+          <h1 class="admin-section-title">Theatres</h1>
+          <p class="admin-section-sub">Manage theatres and screens.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openTheatreModal()">+ Add Theatre</button>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>City</th><th>Location</th><th>Facilities</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="theatres-table-body"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== SHOWS SECTION ===== -->
+    <div class="admin-section" id="section-shows">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
+        <div>
+          <h1 class="admin-section-title">Showtimes</h1>
+          <p class="admin-section-sub">Schedule and manage shows.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openShowModal()">+ Add Show</button>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Movie</th><th>Theatre / Screen</th><th>Date</th><th>Time</th><th>Price Regular</th><th>Price VIP</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="shows-table-body"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== BOOKINGS SECTION ===== -->
+    <div class="admin-section" id="section-bookings">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px">
+        <div>
+          <h1 class="admin-section-title">All Bookings</h1>
+          <p class="admin-section-sub">View and manage customer bookings.</p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <select id="booking-status-filter" class="form-control" style="width:auto;padding:8px 14px;border-radius:8px" onchange="loadAllBookings()">
+            <option value="">All Status</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="pending">Pending</option>
+          </select>
+        </div>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Trans. ID</th><th>User</th><th>Movie</th><th>Show Date</th><th>Seats</th><th>Amount</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="all-bookings-body"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== USERS SECTION ===== -->
+    <div class="admin-section" id="section-users">
+      <div style="margin-bottom:32px">
+        <h1 class="admin-section-title">Users</h1>
+        <p class="admin-section-sub">Registered customer accounts.</p>
+      </div>
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Bookings</th><th>Joined</th></tr>
+          </thead>
+          <tbody id="users-table-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== MODAL: ADD/EDIT MOVIE ===== -->
+<div class="modal-backdrop" id="movie-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="movie-modal-title">Add Movie</h3>
+      <button class="modal-close" onclick="closeModal('movie-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="movie-edit-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group" style="grid-column:1/-1"><label>Movie Title *</label><input type="text" id="movie-title-in" class="form-control" placeholder="e.g. Oppenheimer"></div>
+        <div class="form-group"><label>Genre *</label><input type="text" id="movie-genre-in" class="form-control" placeholder="Action, Sci-Fi"></div>
+        <div class="form-group"><label>Language *</label><input type="text" id="movie-lang-in" class="form-control" placeholder="English"></div>
+        <div class="form-group"><label>Duration (min) *</label><input type="number" id="movie-dur-in" class="form-control" placeholder="150"></div>
+        <div class="form-group"><label>Rating (out of 10)</label><input type="number" id="movie-rating-in" class="form-control" min="0" max="10" step="0.1" placeholder="8.5"></div>
+        <div class="form-group"><label>Release Date *</label><input type="date" id="movie-date-in" class="form-control"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Poster URL</label><input type="url" id="movie-poster-in" class="form-control" placeholder="https://..."></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Trailer URL</label><input type="url" id="movie-trailer-in" class="form-control" placeholder="https://youtube.com/..."></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Cast</label><input type="text" id="movie-cast-in" class="form-control" placeholder="Actor A, Actor B"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>Description</label><textarea id="movie-desc-in" class="form-control" rows="3" placeholder="Plot summary…"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('movie-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMovie()">💾 Save Movie</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ADD/EDIT THEATRE ===== -->
+<div class="modal-backdrop" id="theatre-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="theatre-modal-title">Add Theatre</h3>
+      <button class="modal-close" onclick="closeModal('theatre-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="theatre-edit-id">
+      <div class="form-group"><label>Theatre Name *</label><input type="text" id="theatre-name-in" class="form-control" placeholder="PVR Cinemas"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group"><label>City *</label><input type="text" id="theatre-city-in" class="form-control" placeholder="Mumbai"></div>
+        <div class="form-group"><label>Location *</label><input type="text" id="theatre-loc-in" class="form-control" placeholder="Andheri West"></div>
+      </div>
+      <div class="form-group"><label>Facilities</label><input type="text" id="theatre-fac-in" class="form-control" placeholder="Dolby, IMAX, 4DX"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('theatre-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTheatre()">💾 Save Theatre</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: ADD SHOW ===== -->
+<div class="modal-backdrop" id="show-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add Showtime</h3>
+      <button class="modal-close" onclick="closeModal('show-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Movie *</label><select id="show-movie-in" class="form-control"><option value="">Select Movie…</option></select></div>
+      <div class="form-group"><label>Screen *</label><select id="show-screen-in" class="form-control"><option value="">Select Screen…</option></select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group"><label>Date *</label><input type="date" id="show-date-in" class="form-control"></div>
+        <div class="form-group"><label>Time *</label><input type="time" id="show-time-in" class="form-control"></div>
+        <div class="form-group"><label>Regular Price (₹) *</label><input type="number" id="show-price-reg-in" class="form-control" placeholder="200"></div>
+        <div class="form-group"><label>VIP Price (₹) *</label><input type="number" id="show-price-vip-in" class="form-control" placeholder="450"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('show-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShow()">💾 Add Show</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+<script>
+/* =================== INIT =================== */
+document.addEventListener('DOMContentLoaded', () => {
+  if (!requireAdmin()) return;
+  const user = getUser();
+  if (user) {
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('admin-avatar').textContent = user.name.charAt(0).toUpperCase();
+  }
+  document.getElementById('admin-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  // Nav
+  document.querySelectorAll('.admin-nav a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      showSection(a.dataset.section);
+    });
+  });
+
+  loadStats();
+  loadRecentBookings();
+});
+
+function showSection(name) {
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.admin-nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.querySelector(`.admin-nav a[data-section="${name}"]`).classList.add('active');
+
+  if (name === 'movies') loadMoviesTable();
+  else if (name === 'theatres') loadTheatresTable();
+  else if (name === 'shows') loadShowsTable();
+  else if (name === 'bookings') loadAllBookings();
+  else if (name === 'users') loadUsersTable();
+}
+
+/* =================== STATS =================== */
+async function loadStats() {
+  try {
+    const s = await fetchAPI('/admin/stats');
+    document.getElementById('stats-container').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-gold">💰</div>
+        <h4>Total Revenue</h4>
+        <div class="val text-gold">${formatCurrency(s.totalRevenue)}</div>
+        <span class="trend">Today: ${formatCurrency(s.todayRevenue)}</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-red">🎟</div>
+        <h4>Total Bookings</h4>
+        <div class="val">${s.totalBookings}</div>
+        <span class="trend neutral">All-time confirmed</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-blue">👥</div>
+        <h4>Registered Users</h4>
+        <div class="val">${s.totalUsers}</div>
+        <span class="trend neutral">Active accounts</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-green">📅</div>
+        <h4>Today's Bookings</h4>
+        <div class="val">${s.todayBookings}</div>
+        <span class="trend">Today's count</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-red">🎬</div>
+        <h4>Movies Listed</h4>
+        <div class="val">${s.totalMovies}</div>
+        <span class="trend neutral">In catalogue</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-blue">🏛</div>
+        <h4>Theatres</h4>
+        <div class="val">${s.totalTheatres}</div>
+        <span class="trend neutral">Partner venues</span>
+      </div>`;
+  } catch (err) { showToast('Failed to load stats', 'error'); }
+}
+
+/* =================== RECENT BOOKINGS =================== */
+async function loadRecentBookings() {
+  try {
+    const data = await fetchAPI('/admin/bookings?limit=10');
+    renderBookingsTable('bookings-table-body', data.bookings, false);
+  } catch (err) { showToast('Failed to load bookings', 'error'); }
+}
+
+function renderBookingsTable(tbodyId, bookings, showActions = true) {
+  const tbody = document.getElementById(tbodyId);
+  if (!bookings.length) {
+    tbody.innerHTML = `<tr><td colspan="${showActions?8:6}" style="text-align:center;padding:40px;color:var(--text-muted)">No bookings found</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = bookings.map(b => `
+    <tr>
+      <td><strong style="font-family:monospace;font-size:0.8rem">${b.transaction_id || 'BMS' + b.id}</strong></td>
+      <td><div style="font-weight:600;font-size:0.88rem">${b.user_name}</div><div style="font-size:0.72rem;color:var(--text-dim)">${b.user_email}</div></td>
+      <td style="font-weight:600;font-size:0.88rem">${b.movie_title}</td>
+      <td><div style="font-size:0.88rem">${formatDate(b.show_date)}</div><div style="font-size:0.72rem;color:var(--text-dim)">${formatTime(b.show_time)}</div></td>
+      ${showActions ? `<td style="font-size:0.88rem">${b.seat_count || 0} seats</td>` : ''}
+      <td style="font-weight:700;font-size:0.88rem">${formatCurrency(b.total_amount)}</td>
+      <td><span class="status-pill status-${(b.status||'confirmed').toLowerCase()}">${b.status}</span></td>
+      ${showActions ? `<td><a href="confirmation.html?bookingId=${b.id}" target="_blank" class="btn btn-ghost btn-sm">View</a></td>` : ''}
+    </tr>`).join('');
+}
+
+/* =================== MOVIES CRUD =================== */
+let allMoviesAdmin = [];
+async function loadMoviesTable() {
+  try {
+    allMoviesAdmin = await fetchAPI('/movies');
+    const tbody = document.getElementById('movies-table-body');
+    if (!allMoviesAdmin.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">No movies yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allMoviesAdmin.map(m => `
+      <tr>
+        <td><img src="${m.poster_url||''}" onerror="this.src=''" style="width:40px;height:60px;object-fit:cover;border-radius:4px;background:var(--bg-card-2)"></td>
+        <td style="font-weight:700;max-width:220px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div></td>
+        <td><span class="genre-pill">${(m.genre||'').split(',')[0].trim()}</span></td>
+        <td style="font-size:0.82rem">${m.language}</td>
+        <td style="color:var(--gold);font-weight:700">⭐ ${m.rating}</td>
+        <td style="font-size:0.82rem">${m.release_date}</td>
+        <td>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openMovieModal(${m.id})">✏️ Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteMovie(${m.id}, '${m.title.replace(/'/g,"\\'")}')">🗑</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch (err) { showToast('Failed to load movies', 'error'); }
+}
+
+function openMovieModal(movieId) {
+  document.getElementById('movie-modal-title').textContent = movieId ? 'Edit Movie' : 'Add Movie';
+  document.getElementById('movie-edit-id').value = movieId || '';
+  ['title-in','genre-in','lang-in','dur-in','rating-in','date-in','poster-in','trailer-in','cast-in','desc-in'].forEach(f=>{
+    document.getElementById('movie-'+f).value = '';
+  });
+  if (movieId) {
+    const m = allMoviesAdmin.find(x => x.id === movieId);
+    if (m) {
+      document.getElementById('movie-title-in').value = m.title || '';
+      document.getElementById('movie-genre-in').value = m.genre || '';
+      document.getElementById('movie-lang-in').value = m.language || '';
+      document.getElementById('movie-dur-in').value = m.duration_minutes || '';
+      document.getElementById('movie-rating-in').value = m.rating || '';
+      document.getElementById('movie-date-in').value = m.release_date || '';
+      document.getElementById('movie-poster-in').value = m.poster_url || '';
+      document.getElementById('movie-trailer-in').value = m.trailer_url || '';
+      document.getElementById('movie-cast-in').value = m.cast || '';
+      document.getElementById('movie-desc-in').value = m.description || '';
+    }
+  }
+  openModal('movie-modal');
+}
+
+async function saveMovie() {
+  const editId = document.getElementById('movie-edit-id').value;
+  const payload = {
+    title: document.getElementById('movie-title-in').value.trim(),
+    genre: document.getElementById('movie-genre-in').value.trim(),
+    language: document.getElementById('movie-lang-in').value.trim(),
+    duration_minutes: parseInt(document.getElementById('movie-dur-in').value),
+    rating: parseFloat(document.getElementById('movie-rating-in').value)||0,
+    release_date: document.getElementById('movie-date-in').value,
+    poster_url: document.getElementById('movie-poster-in').value.trim(),
+    trailer_url: document.getElementById('movie-trailer-in').value.trim(),
+    cast: document.getElementById('movie-cast-in').value.trim(),
+    description: document.getElementById('movie-desc-in').value.trim()
+  };
+  if (!payload.title || !payload.genre || !payload.language || !payload.duration_minutes || !payload.release_date) {
+    showToast('Please fill in all required fields', 'warning'); return;
+  }
+  try {
+    if (editId) {
+      await fetchAPI(`/admin/movies/${editId}`, { method:'PUT', body:JSON.stringify(payload) });
+      showToast('Movie updated!', 'success');
+    } else {
+      await fetchAPI('/admin/movies', { method:'POST', body:JSON.stringify(payload) });
+      showToast('Movie added!', 'success');
+    }
+    closeModal('movie-modal');
+    loadMoviesTable();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteMovie(id, title) {
+  if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+  try {
+    await fetchAPI(`/admin/movies/${id}`, { method:'DELETE' });
+    showToast(`"${title}" deleted`, 'info');
+    loadMoviesTable();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+/* =================== THEATRES CRUD =================== */
+let allTheatresAdmin = [];
+async function loadTheatresTable() {
+  try {
+    allTheatresAdmin = await fetchAPI('/theatres');
+    const tbody = document.getElementById('theatres-table-body');
+    if (!allTheatresAdmin.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">No theatres yet.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allTheatresAdmin.map(t => `
+      <tr>
+        <td style="font-weight:700">${t.name}</td>
+        <td>${t.city}</td>
+        <td style="font-size:0.83rem">${t.location}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${t.facilities||'—'}</td>
+        <td>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="openTheatreModal(${t.id})">✏️ Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTheatre(${t.id},'${t.name.replace(/'/g,"\\'")}')">🗑</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch (err) { showToast('Failed to load theatres', 'error'); }
+}
+
+function openTheatreModal(theatreId) {
+  document.getElementById('theatre-modal-title').textContent = theatreId ? 'Edit Theatre' : 'Add Theatre';
+  document.getElementById('theatre-edit-id').value = theatreId || '';
+  ['theatre-name-in','theatre-city-in','theatre-loc-in','theatre-fac-in'].forEach(id=>{ document.getElementById(id).value=''; });
+  if (theatreId) {
+    const t = allTheatresAdmin.find(x=>x.id===theatreId);
+    if (t) {
+      document.getElementById('theatre-name-in').value = t.name||'';
+      document.getElementById('theatre-city-in').value = t.city||'';
+      document.getElementById('theatre-loc-in').value = t.location||'';
+      document.getElementById('theatre-fac-in').value = t.facilities||'';
+    }
+  }
+  openModal('theatre-modal');
+}
+
+async function saveTheatre() {
+  const editId = document.getElementById('theatre-edit-id').value;
+  const payload = {
+    name: document.getElementById('theatre-name-in').value.trim(),
+    city: document.getElementById('theatre-city-in').value.trim(),
+    location: document.getElementById('theatre-loc-in').value.trim(),
+    facilities: document.getElementById('theatre-fac-in').value.trim()
+  };
+  if (!payload.name || !payload.city || !payload.location) { showToast('Name, city and location required','warning'); return; }
+  try {
+    if (editId) {
+      await fetchAPI(`/admin/theatres/${editId}`, { method:'PUT', body:JSON.stringify(payload) });
+      showToast('Theatre updated!', 'success');
+    } else {
+      await fetchAPI('/admin/theatres', { method:'POST', body:JSON.stringify(payload) });
+      showToast('Theatre added!', 'success');
+    }
+    closeModal('theatre-modal');
+    loadTheatresTable();
+  } catch (err) { showToast(err.message,'error'); }
+}
+
+async function deleteTheatre(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  try {
+    await fetchAPI(`/admin/theatres/${id}`, { method:'DELETE' });
+    showToast(`"${name}" deleted`, 'info');
+    loadTheatresTable();
+  } catch (err) { showToast(err.message,'error'); }
+}
+
+/* =================== SHOWS =================== */
+async function loadShowsTable() {
+  try {
+    const [movies, screens] = await Promise.all([
+      fetchAPI('/movies'),
+      fetchAPI('/admin/screens')
+    ]);
+    allMoviesAdmin = movies;
+    const tbody = document.getElementById('shows-table-body');
+    // Build a flat shows table from all movies
+    let allShows = [];
+    for (const m of movies.slice(0, 10)) {
+      const shows = await fetchAPI(`/movies/${m.id}/shows`);
+      shows.forEach(s => allShows.push({ ...s, movie_title: m.title }));
+    }
+    if (!allShows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">No shows scheduled.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allShows.map(s => `
+      <tr>
+        <td style="font-weight:600;font-size:0.88rem">${s.movie_title}</td>
+        <td style="font-size:0.83rem">${s.theatre_name} / ${s.screen_name}</td>
+        <td style="font-size:0.83rem">${formatDate(s.show_date)}</td>
+        <td style="font-weight:600">${formatTime(s.show_time)}</td>
+        <td>₹${s.price_regular}</td>
+        <td style="color:var(--gold)">₹${s.price_vip}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteShow(${s.show_id})">🗑 Delete</button></td>
+      </tr>`).join('');
+  } catch (err) { showToast('Failed to load shows', 'error'); }
+}
+
+async function openShowModal() {
+  // Populate dropdowns
+  const [movies, screens] = await Promise.all([fetchAPI('/movies'), fetchAPI('/admin/screens')]);
+  document.getElementById('show-movie-in').innerHTML = '<option value="">Select Movie…</option>' +
+    movies.map(m => `<option value="${m.id}">${m.title}</option>`).join('');
+  document.getElementById('show-screen-in').innerHTML = '<option value="">Select Screen…</option>' +
+    screens.map(sc => `<option value="${sc.id}">${sc.theatre_name} — ${sc.name}</option>`).join('');
+  openModal('show-modal');
+}
+
+async function saveShow() {
+  const payload = {
+    movie_id: parseInt(document.getElementById('show-movie-in').value),
+    screen_id: parseInt(document.getElementById('show-screen-in').value),
+    show_date: document.getElementById('show-date-in').value,
+    show_time: document.getElementById('show-time-in').value,
+    price_regular: parseFloat(document.getElementById('show-price-reg-in').value),
+    price_vip: parseFloat(document.getElementById('show-price-vip-in').value)
+  };
+  if (!payload.movie_id || !payload.screen_id || !payload.show_date || !payload.show_time || !payload.price_regular || !payload.price_vip) {
+    showToast('All fields are required','warning'); return;
+  }
+  try {
+    await fetchAPI('/admin/shows', { method:'POST', body:JSON.stringify(payload) });
+    showToast('Show added successfully!','success');
+    closeModal('show-modal');
+    loadShowsTable();
+  } catch (err) { showToast(err.message,'error'); }
+}
+
+async function deleteShow(showId) {
+  if (!confirm('Delete this show?')) return;
+  try {
+    await fetchAPI(`/admin/shows/${showId}`, { method:'DELETE' });
+    showToast('Show deleted','info');
+    loadShowsTable();
+  } catch (err) { showToast(err.message,'error'); }
+}
+
+/* =================== ALL BOOKINGS =================== */
+async function loadAllBookings() {
+  const status = document.getElementById('booking-status-filter')?.value || '';
+  try {
+    const data = await fetchAPI(`/admin/bookings?limit=100${status?'&status='+status:''}`);
+    renderBookingsTable('all-bookings-body', data.bookings, true);
+  } catch (err) { showToast('Failed to load bookings', 'error'); }
+}
+
+/* =================== USERS =================== */
+async function loadUsersTable() {
+  try {
+    const users = await fetchAPI('/admin/users');
+    const tbody = document.getElementById('users-table-body');
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">No users.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="avatar" style="width:32px;height:32px;font-size:0.75rem;flex-shrink:0">${u.name.charAt(0).toUpperCase()}</div>
+            <span style="font-weight:600;font-size:0.88rem">${u.name}</span>
+          </div>
+        </td>
+        <td style="font-size:0.83rem">${u.email}</td>
+        <td style="font-size:0.83rem">${u.phone||'—'}</td>
+        <td><span class="status-pill ${u.role==='admin'?'status-pending':'status-confirmed'}">${u.role}</span></td>
+        <td style="font-weight:700;text-align:center">${u.booking_count||0}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${formatDate(u.created_at)}</td>
+      </tr>`).join('');
+  } catch (err) { showToast('Failed to load users', 'error'); }
+}
+</script>
+</body>
+</html>

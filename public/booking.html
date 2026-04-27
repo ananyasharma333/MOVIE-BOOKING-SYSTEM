@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seat Selection — BookMyShow</title>
+  <meta name="description" content="Choose your seats for the show.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+    <div class="auth-buttons">
+      <div class="user-menu" id="user-menu" style="display:none">
+        <div class="avatar">U</div>
+        <span id="user-name" style="font-size:0.9rem;font-weight:600"></span>
+        <a href="my-bookings.html" class="btn btn-ghost btn-sm">My Tickets</a>
+        <a href="#" data-action="logout" class="btn btn-ghost btn-sm">Logout</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Show Info Bar (filled by JS) -->
+<div class="show-info-bar" id="show-info-bar" style="display:none">
+  <div class="container show-info-inner" id="show-info-inner"></div>
+</div>
+
+<main class="container" id="booking-main" style="display:none">
+  <div class="section-header" style="padding-top:40px">
+    <h1 class="section-title">Select Your Seats</h1>
+    <a href="javascript:history.back()" class="btn btn-ghost btn-sm">← Back</a>
+  </div>
+
+  <div class="booking-layout">
+    <!-- Seat Area -->
+    <div class="seat-area">
+      <div class="screen-label"></div>
+      <div class="screen-text">All eyes this way</div>
+      <div class="seats-grid" id="seats-container"></div>
+
+      <div class="seat-legend">
+        <div class="legend-item">
+          <div class="legend-box" style="background:var(--seat-avail);border:1px solid rgba(255,255,255,0.07)"></div>
+          <span>Available</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="background:var(--primary);box-shadow:0 0 10px var(--primary-glow)"></div>
+          <span>Selected</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="background:transparent;border:1.5px solid rgba(245,200,66,0.45)"></div>
+          <span>VIP</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box" style="background:var(--seat-booked);opacity:0.4;border:1px solid rgba(255,255,255,0.03)"></div>
+          <span>Occupied</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Sidebar -->
+    <div class="booking-sidebar">
+      <div class="booking-summary-card glass-card">
+        <h3>🧾 Booking Summary</h3>
+
+        <div class="summary-line">
+          <span>Selected Seats</span>
+          <span id="summary-seats-count" class="text-gold" style="font-weight:700;font-size:1.1rem">0</span>
+        </div>
+
+        <div id="selected-seats-list" class="selected-seats-chips">
+          <span style="color:var(--text-dim);font-size:0.82rem">No seats selected</span>
+        </div>
+
+        <div class="summary-line">
+          <span>Base Amount</span>
+          <span id="summary-subtotal">₹0</span>
+        </div>
+        <div class="summary-line">
+          <span>Convenience Fee</span>
+          <span id="summary-fee">₹0</span>
+        </div>
+
+        <div class="summary-total">
+          <span style="font-size:0.95rem">Total Amount</span>
+          <span id="summary-total" class="total-amount">₹0</span>
+        </div>
+
+        <button id="proceed-btn" class="btn btn-primary btn-lg btn-full" style="margin-top:24px" disabled>
+          Select Seats to Continue
+        </button>
+
+        <p style="text-align:center;font-size:0.73rem;color:var(--text-dim);margin-top:14px;line-height:1.6">
+          By proceeding you agree to our
+          <a href="#" style="color:var(--text-muted)">Terms & Conditions</a>
+        </p>
+      </div>
+
+      <!-- Movie Poster hint if available -->
+      <div id="movie-mini-card" style="margin-top:16px;display:none">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:14px;align-items:center">
+          <img id="mini-poster" src="" alt="" style="width:48px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0">
+          <div>
+            <div id="mini-title" style="font-weight:700;font-size:0.9rem;font-family:'Outfit',sans-serif;margin-bottom:4px"></div>
+            <div id="mini-meta" style="font-size:0.76rem;color:var(--text-muted)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Payment Processing Overlay -->
+<div id="processing-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:5000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:20px">
+  <div class="spinner" style="width:56px;height:56px;border-width:4px"></div>
+  <p style="font-size:1.1rem;font-weight:600">Processing payment…</p>
+  <p style="font-size:0.85rem;color:var(--text-muted)">Please do not close this window</p>
+</div>
+
+<footer>
+  <div class="container footer-bottom">
+    <span>© 2024 BookMyShow Clone</span>
+    <span>🔒 100% Secure Payments</span>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+let selectedSeats = [];
+let seatPrices = { regular: 0, vip: 0 };
+let showId = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireLogin()) return;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  showId = urlParams.get('showId');
+  if (!showId) { window.location.href = 'index.html'; return; }
+
+  try {
+    const [showDetails, seats] = await Promise.all([
+      fetchAPI(`/shows/${showId}`),
+      fetchAPI(`/shows/${showId}/seats`)
+    ]);
+
+    seatPrices.regular = showDetails.price_regular;
+    seatPrices.vip = showDetails.price_vip;
+
+    // Info bar
+    document.getElementById('show-info-bar').style.display = 'block';
+    document.getElementById('show-info-inner').innerHTML = `
+      <div class="show-info-item">
+        <span class="show-info-label">🎬 Movie</span>
+        <span class="show-info-val">${showDetails.movie_title}</span>
+      </div>
+      <div class="show-info-item">
+        <span class="show-info-label">🏛 Theatre</span>
+        <span class="show-info-val">${showDetails.theatre_name}</span>
+      </div>
+      <div class="show-info-item">
+        <span class="show-info-label">📺 Screen</span>
+        <span class="show-info-val">${showDetails.screen_name}</span>
+      </div>
+      <div class="show-info-item">
+        <span class="show-info-label">📅 Date</span>
+        <span class="show-info-val">${formatDate(showDetails.show_date)}</span>
+      </div>
+      <div class="show-info-item">
+        <span class="show-info-label">🕐 Time</span>
+        <span class="show-info-val">${formatTime(showDetails.show_time)}</span>
+      </div>
+      <div class="show-info-item">
+        <span class="show-info-label">💺 Pricing</span>
+        <span class="show-info-val">₹${showDetails.price_regular} / ₹${showDetails.price_vip} VIP</span>
+      </div>`;
+
+    // Mini card
+    if (showDetails.poster_url) {
+      const miniCard = document.getElementById('movie-mini-card');
+      miniCard.style.display = 'block';
+      document.getElementById('mini-poster').src = showDetails.poster_url;
+      document.getElementById('mini-title').textContent = showDetails.movie_title;
+      document.getElementById('mini-meta').textContent = `${showDetails.genre || ''} • ${showDetails.duration_minutes}min`;
+    }
+
+    document.title = `Book ${showDetails.movie_title} — BookMyShow`;
+    document.getElementById('booking-main').style.display = 'block';
+    renderSeats(seats);
+
+  } catch (error) {
+    document.getElementById('booking-main').style.display = 'block';
+    document.getElementById('booking-main').innerHTML = `
+      <div class="empty-state" style="padding:100px 0">
+        <div class="empty-icon">❌</div>
+        <h3>Error Loading Seats</h3>
+        <p>${error.message}</p>
+        <a href="index.html" class="btn btn-primary" style="margin-top:20px">Go Home</a>
+      </div>`;
+  }
+});
+
+function renderSeats(seats) {
+  const container = document.getElementById('seats-container');
+  container.innerHTML = '';
+  const rows = {};
+  seats.forEach(seat => {
+    if (!rows[seat.row_no]) rows[seat.row_no] = [];
+    rows[seat.row_no].push(seat);
+  });
+
+  Object.keys(rows).sort().forEach(rowNo => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'seat-row';
+
+    const label = document.createElement('div');
+    label.className = 'row-label';
+    label.textContent = rowNo;
+    rowDiv.appendChild(label);
+
+    // Gap visual in the middle
+    const midpoint = Math.ceil(rows[rowNo].length / 2);
+    rows[rowNo].forEach((seat, idx) => {
+      if (idx === midpoint) {
+        const gap = document.createElement('div');
+        gap.style.width = '18px';
+        rowDiv.appendChild(gap);
+      }
+      const seatDiv = document.createElement('div');
+      seatDiv.className = `seat ${seat.type} ${seat.status}`;
+      seatDiv.title = `${seat.row_no}${seat.seat_no} (${seat.type === 'vip' ? 'VIP ₹' + seatPrices.vip : 'Regular ₹' + seatPrices.regular})`;
+      seatDiv.dataset.id = seat.id;
+      seatDiv.dataset.name = `${seat.row_no}${seat.seat_no}`;
+      seatDiv.dataset.type = seat.type;
+      if (seat.status === 'available') seatDiv.addEventListener('click', () => toggleSeat(seatDiv));
+      rowDiv.appendChild(seatDiv);
+    });
+    container.appendChild(rowDiv);
+  });
+}
+
+function toggleSeat(el) {
+  const seatId = el.dataset.id;
+  const seatName = el.dataset.name;
+  const seatType = el.dataset.type;
+  const price = seatPrices[seatType];
+  const isSelected = el.classList.contains('selected');
+
+  if (isSelected) {
+    el.classList.remove('selected');
+    selectedSeats = selectedSeats.filter(s => s.id !== seatId);
+  } else {
+    if (selectedSeats.length >= 10) { showToast('Max 10 seats per booking', 'warning'); return; }
+    el.classList.add('selected');
+    selectedSeats.push({ id: seatId, name: seatName, type: seatType, price });
+  }
+  updateSummary();
+}
+
+function updateSummary() {
+  const countEl = document.getElementById('summary-seats-count');
+  const listEl = document.getElementById('selected-seats-list');
+  const subtotalEl = document.getElementById('summary-subtotal');
+  const feeEl = document.getElementById('summary-fee');
+  const totalEl = document.getElementById('summary-total');
+  const proceedBtn = document.getElementById('proceed-btn');
+
+  countEl.textContent = selectedSeats.length;
+
+  if (!selectedSeats.length) {
+    listEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.82rem">No seats selected</span>';
+    subtotalEl.textContent = '₹0';
+    feeEl.textContent = '₹0';
+    totalEl.textContent = '₹0';
+    proceedBtn.disabled = true;
+    proceedBtn.textContent = 'Select Seats to Continue';
+    return;
+  }
+
+  listEl.innerHTML = selectedSeats.map(s =>
+    `<span class="seat-chip ${s.type === 'vip' ? 'vip' : ''}">${s.name}</span>`
+  ).join('');
+
+  const subtotal = selectedSeats.reduce((acc, s) => acc + s.price, 0);
+  const fee = selectedSeats.length * 30;
+  const total = subtotal + fee;
+
+  subtotalEl.textContent = formatCurrency(subtotal);
+  feeEl.textContent = formatCurrency(fee);
+  totalEl.textContent = formatCurrency(total);
+
+  proceedBtn.disabled = false;
+  proceedBtn.innerHTML = `🎟 Pay ${formatCurrency(total)}`;
+  proceedBtn.onclick = () => confirmBooking(total);
+}
+
+async function confirmBooking(totalAmount) {
+  const btn = document.getElementById('proceed-btn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Processing…';
+  document.getElementById('processing-overlay').style.display = 'flex';
+
+  try {
+    const res = await fetchAPI('/bookings', {
+      method: 'POST',
+      body: JSON.stringify({
+        showId: parseInt(showId),
+        seatIds: selectedSeats.map(s => parseInt(s.id)),
+        totalAmount
+      })
+    });
+    showToast('🎉 Booking confirmed!', 'success');
+    setTimeout(() => {
+      window.location.href = `confirmation.html?bookingId=${res.bookingId}`;
+    }, 400);
+  } catch (error) {
+    document.getElementById('processing-overlay').style.display = 'none';
+    showToast('Booking failed: ' + error.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = `🎟 Pay ${formatCurrency(totalAmount)}`;
+  }
+}
+</script>
+</body>
+</html>

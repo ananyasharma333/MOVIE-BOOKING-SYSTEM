@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookMyShow — Book Movie Tickets Online</title>
+  <meta name="description" content="Book movie tickets online for all the latest films at top theatres across your city.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ====== HEADER ====== -->
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+
+    <div class="header-search">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="header-search-input" placeholder="Search movies, genres…">
+    </div>
+
+    <ul class="nav-links">
+      <li><a href="index.html" class="active">Movies</a></li>
+      <li><a href="#theatres">Theatres</a></li>
+      <li><a href="my-bookings.html" id="my-bookings-link" style="display:none">My Tickets</a></li>
+      <li><a href="admin.html" id="admin-link" style="display:none">⚙ Admin</a></li>
+    </ul>
+
+    <div class="auth-buttons">
+      <a href="login.html" class="btn btn-ghost btn-sm" id="login-link">Login</a>
+      <a href="login.html?signup=true" class="btn btn-primary btn-sm" id="signup-link">Sign Up</a>
+      <div class="user-menu" id="user-menu" style="display:none">
+        <div class="avatar">U</div>
+        <span id="user-name" style="font-size:0.9rem;font-weight:600"></span>
+        <a href="#" data-action="logout" class="btn btn-ghost btn-sm">Logout</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ====== HERO SECTION ====== -->
+<section class="hero" id="hero-section">
+  <div class="hero-bg" id="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="container">
+    <div class="hero-content" id="hero-content">
+      <div class="hero-tag">🎬 Now Showing</div>
+      <h1 class="hero-title" id="hero-title">Loading…</h1>
+      <div class="hero-meta" id="hero-meta"></div>
+      <p class="hero-desc" id="hero-desc"></p>
+      <div class="hero-actions" id="hero-actions"></div>
+    </div>
+  </div>
+  <div class="hero-dots" id="hero-dots"></div>
+</section>
+
+<!-- ====== MOVIES SECTION ====== -->
+<main class="section container" id="movies">
+  <div class="section-header">
+    <h2 class="section-title">Recommended Movies</h2>
+    <select id="sort-select" class="form-control" style="width:auto;padding:8px 14px;border-radius:24px;font-size:0.85rem">
+      <option value="release_date">Latest First</option>
+      <option value="rating">Top Rated</option>
+      <option value="title">A–Z</option>
+    </select>
+  </div>
+
+  <!-- Genre Filter Pills -->
+  <div class="filter-row" id="genre-filters">
+    <span class="filter-pill active" data-genre="">All</span>
+    <span class="filter-pill" data-genre="Action">Action</span>
+    <span class="filter-pill" data-genre="Sci-Fi">Sci-Fi</span>
+    <span class="filter-pill" data-genre="Drama">Drama</span>
+    <span class="filter-pill" data-genre="Animation">Animation</span>
+    <span class="filter-pill" data-genre="Biography">Biography</span>
+    <span class="filter-pill" data-genre="Crime">Crime</span>
+    <span class="filter-pill" data-genre="Thriller">Thriller</span>
+  </div>
+
+  <div class="movies-grid" id="movies-container">
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p class="loading-text">Loading movies…</p>
+    </div>
+  </div>
+</main>
+
+<!-- ====== FOOTER ====== -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+        <p>Your ultimate destination for movie tickets. Experience cinema like never before with the best seats at your favourite theatres.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Explore</h4>
+        <ul>
+          <li><a href="#">Now Showing</a></li>
+          <li><a href="#">Coming Soon</a></li>
+          <li><a href="#theatres">Theatres</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Account</h4>
+        <ul>
+          <li><a href="login.html">Login</a></li>
+          <li><a href="my-bookings.html">My Tickets</a></li>
+          <li><a href="#" data-action="logout">Logout</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Help</h4>
+        <ul>
+          <li><a href="#">Contact Support</a></li>
+          <li><a href="#">Refund Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2024 BookMyShow Clone. All rights reserved.</span>
+      <span>Made with ❤️ for cinema lovers</span>
+    </div>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+  // ---- State ----
+  let allMovies = [];
+  let activeGenre = '';
+  let heroIndex = 0;
+  let heroInterval;
+
+  // ---- Load Movies ----
+  async function loadMovies(genre = '', sort = 'release_date', search = '') {
+    const container = document.getElementById('movies-container');
+    renderLoading(container, 'Loading movies…');
+
+    try {
+      const params = new URLSearchParams();
+      if (genre)  params.set('genre', genre);
+      if (sort)   params.set('sort', sort);
+      if (search) params.set('search', search);
+
+      allMovies = await fetchAPI(`/movies?${params}`);
+
+      if (!allMovies.length) {
+        renderEmpty(container, '🎬', 'No movies found', 'Try a different filter or search term.');
+        return;
+      }
+
+      renderMovieGrid(allMovies);
+      setupHero(allMovies);
+    } catch (e) {
+      renderError(container, 'Could not load movies. Is the server running?');
+    }
+  }
+
+  function renderMovieGrid(movies) {
+    const container = document.getElementById('movies-container');
+    container.innerHTML = movies.map((m, i) => `
+      <div class="movie-card animate-fade-up" style="animation-delay:${i * 0.05}s"
+           onclick="window.location.href='movie.html?id=${m.id}'"
+           role="button" tabindex="0">
+        <div class="movie-poster-wrap">
+          <img class="movie-poster" src="${m.poster_url || ''}" alt="${m.title}"
+               onerror="this.src='https://via.placeholder.com/300x450/17181c/555?text=No+Poster'">
+          <div class="movie-overlay">
+            <button class="btn btn-primary btn-sm">Book Tickets</button>
+          </div>
+          <div class="movie-rating-badge">⭐ ${m.rating}</div>
+        </div>
+        <div class="movie-info">
+          <div class="movie-title">${m.title}</div>
+          <div class="movie-meta-row">
+            <span class="genre-pill">${(m.genre || '').split(',')[0].trim()}</span>
+            <span style="color:var(--text-dim);font-size:0.78rem">${m.language}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ---- Hero Slider ----
+  function setupHero(movies) {
+    if (!movies.length) return;
+    renderHero(movies, 0);
+    const dotsEl = document.getElementById('hero-dots');
+    dotsEl.innerHTML = movies.slice(0, 5).map((_, i) => `
+      <div class="hero-dot ${i === 0 ? 'active' : ''}" data-index="${i}"></div>
+    `).join('');
+    dotsEl.querySelectorAll('.hero-dot').forEach(dot => {
+      dot.addEventListener('click', () => { clearInterval(heroInterval); renderHero(movies, parseInt(dot.dataset.index)); startHeroInterval(movies); });
+    });
+    startHeroInterval(movies);
+  }
+
+  function startHeroInterval(movies) {
+    heroInterval = setInterval(() => {
+      heroIndex = (heroIndex + 1) % Math.min(movies.length, 5);
+      renderHero(movies, heroIndex);
+    }, 5000);
+  }
+
+  function renderHero(movies, idx) {
+    heroIndex = idx;
+    const m = movies[idx];
+    const bgEl = document.getElementById('hero-bg');
+    const contentEl = document.getElementById('hero-content');
+    
+    // Smooth transition effect
+    bgEl.style.opacity = '0';
+    contentEl.style.opacity = '0';
+    contentEl.style.transform = 'translateY(10px)';
+
+    setTimeout(() => {
+      bgEl.style.backgroundImage = `url('${m.poster_url}')`;
+      document.getElementById('hero-title').textContent = m.title;
+      document.getElementById('hero-desc').textContent = m.description || 'Experience the magic of cinema. Book your tickets now for the best seats in the house.';
+      document.getElementById('hero-meta').innerHTML = `
+        <span class="hero-rating">⭐ ${m.rating}/10</span>
+        <span>🕐 ${m.duration_minutes} min</span>
+        <span>🌐 ${m.language}</span>
+      `;
+      document.getElementById('hero-actions').innerHTML = `
+        <a href="movie.html?id=${m.id}" class="btn btn-primary btn-lg">🎟 Book Tickets Now</a>
+        <a href="movie.html?id=${m.id}" class="btn btn-ghost btn-lg">View Details</a>
+      `;
+      
+      bgEl.style.opacity = '1';
+      contentEl.style.opacity = '1';
+      contentEl.style.transform = 'translateY(0)';
+    }, 300);
+
+    document.querySelectorAll('.hero-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+  }
+
+  // ---- Genre Filter ----
+  document.getElementById('genre-filters').addEventListener('click', (e) => {
+    const pill = e.target.closest('.filter-pill');
+    if (!pill) return;
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeGenre = pill.dataset.genre;
+    loadMovies(activeGenre, document.getElementById('sort-select').value);
+  });
+
+  document.getElementById('sort-select').addEventListener('change', (e) => {
+    loadMovies(activeGenre, e.target.value);
+  });
+
+  // ---- Search from URL ----
+  const urlParams = new URLSearchParams(window.location.search);
+  const searchQuery = urlParams.get('search') || '';
+  if (searchQuery) {
+    const inp = document.getElementById('header-search-input');
+    if (inp) inp.value = searchQuery;
+  }
+
+  // ---- Init ----
+  document.addEventListener('DOMContentLoaded', () => { loadMovies(activeGenre, 'release_date', searchQuery); });
+  window.addEventListener('search', (e) => { loadMovies(activeGenre, 'release_date', e.detail); });
+</script>
+</body>
+</html>

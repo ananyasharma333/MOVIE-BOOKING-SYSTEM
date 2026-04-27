@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login / Sign Up — BookMyShow</title>
+  <meta name="description" content="Login or create your BookMyShow account to book movie tickets.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+  </div>
+</header>
+
+<div class="auth-page">
+  <!-- LOGIN CARD -->
+  <div class="auth-card" id="login-card">
+    <h2>Welcome back 👋</h2>
+    <p class="auth-subtitle">Sign in to continue booking</p>
+    <div id="login-error" class="error-msg"></div>
+    <div id="login-success" class="success-msg"></div>
+
+    <form id="login-form" autocomplete="on">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="login-email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password" style="padding-right:44px">
+          <button type="button" id="toggle-login-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-btn">Login</button>
+    </form>
+
+    <div class="divider">or</div>
+    <p style="text-align:center;font-size:0.8rem;color:var(--text-muted)">Demo credentials: <code style="color:var(--gold)">admin@bookmyshow.com</code> / <code style="color:var(--gold)">admin123</code></p>
+
+    <div class="switch-link">
+      Don't have an account? <a onclick="showSignup()">Create one →</a>
+    </div>
+  </div>
+
+  <!-- SIGNUP CARD -->
+  <div class="auth-card" id="signup-card" style="display:none">
+    <h2>Create Account 🎬</h2>
+    <p class="auth-subtitle">Join thousands of movie lovers</p>
+    <div id="signup-error" class="error-msg"></div>
+
+    <form id="signup-form" autocomplete="on">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="signup-name" class="form-control" placeholder="John Doe" required autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="signup-email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Phone Number <span style="color:var(--text-dim)">(optional)</span></label>
+        <input type="tel" id="signup-phone" class="form-control" placeholder="+91 98765 43210" autocomplete="tel">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="signup-password" class="form-control" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" style="padding-right:44px">
+          <button type="button" id="toggle-signup-pw" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem">👁</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="signup-btn">Create Account</button>
+    </form>
+
+    <div class="switch-link">
+      Already have an account? <a onclick="showLogin()">Sign in →</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+<script>
+  // Check already logged in
+  if (isLoggedIn()) { window.location.href = 'index.html'; }
+
+  // Read URL params
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('signup') === 'true') showSignup();
+
+  function showLogin() {
+    document.getElementById('login-card').style.display = 'block';
+    document.getElementById('signup-card').style.display = 'none';
+  }
+  function showSignup() {
+    document.getElementById('login-card').style.display = 'none';
+    document.getElementById('signup-card').style.display = 'block';
+  }
+
+  // Password toggle
+  function setupPwToggle(btnId, inputId) {
+    document.getElementById(btnId).addEventListener('click', () => {
+      const inp = document.getElementById(inputId);
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+  }
+  setupPwToggle('toggle-login-pw', 'login-password');
+  setupPwToggle('toggle-signup-pw', 'signup-password');
+
+  // ---- Login ----
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      const res = await fetchAPI('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: document.getElementById('login-email').value.trim(),
+          password: document.getElementById('login-password').value
+        })
+      });
+      setAuth(res.token, res.user);
+      showToast(`Welcome back, ${res.user.name.split(' ')[0]}! 🎉`);
+
+      // Redirect
+      const redirect = params.get('redirect') || (res.user.role === 'admin' ? 'admin.html' : 'index.html');
+      setTimeout(() => { window.location.href = decodeURIComponent(redirect); }, 700);
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Login';
+    }
+  });
+
+  // ---- Signup ----
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('signup-btn');
+    const errEl = document.getElementById('signup-error');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Creating account…';
+    try {
+      await fetchAPI('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: document.getElementById('signup-name').value.trim(),
+          email: document.getElementById('signup-email').value.trim(),
+          phone: document.getElementById('signup-phone').value.trim(),
+          password: document.getElementById('signup-password').value
+        })
+      });
+      showToast('Account created! Please sign in.', 'success');
+      showLogin();
+      document.getElementById('login-email').value = document.getElementById('signup-email').value;
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    }
+  });
+</script>
+</body>
+</html>

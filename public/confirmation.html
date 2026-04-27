@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booking Confirmed! — BookMyShow</title>
+  <meta name="description" content="Your movie ticket has been booked successfully.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+    <div class="auth-buttons">
+      <a href="my-bookings.html" class="btn btn-ghost btn-sm">🎟 My Tickets</a>
+      <a href="index.html" class="btn btn-primary btn-sm">Browse Movies</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="success-hero">
+    <div class="container">
+      <span class="confetti-icon">🎉</span>
+      <h1 style="font-size:2.4rem;font-weight:900;margin-bottom:10px">Booking Confirmed!</h1>
+      <p style="color:var(--text-muted);font-size:1rem;max-width:400px;margin:0 auto">
+        Get ready for an amazing experience. Your seats are reserved!
+      </p>
+    </div>
+  </section>
+
+  <div class="container">
+    <div class="ticket-card" id="ticket-card">
+      <div class="ticket-header-bar">
+        <p style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;opacity:0.75;margin-bottom:8px">Movie Ticket</p>
+        <h2 id="movie-title" style="margin:0;font-size:1.6rem;letter-spacing:-0.5px">Loading…</h2>
+        <p id="movie-genre" style="margin:8px 0 0;opacity:0.8;font-size:0.88rem">…</p>
+      </div>
+
+      <div class="ticket-body">
+        <div class="ticket-row">
+          <div class="ticket-col">
+            <div class="ticket-label">🏛 Theatre</div>
+            <div class="ticket-value" id="theatre-name">…</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:3px" id="theatre-city"></div>
+          </div>
+          <div class="ticket-col right">
+            <div class="ticket-label">📺 Screen</div>
+            <div class="ticket-value" id="screen-name">…</div>
+          </div>
+        </div>
+
+        <div class="ticket-row">
+          <div class="ticket-col">
+            <div class="ticket-label">📅 Date & Time</div>
+            <div class="ticket-value" id="show-time">…</div>
+          </div>
+          <div class="ticket-col right">
+            <div class="ticket-label">💺 Seats</div>
+            <div class="ticket-value" id="seat-numbers" style="color:var(--gold)">…</div>
+          </div>
+        </div>
+
+        <hr class="ticket-divider">
+
+        <div class="ticket-row" style="margin-bottom:0">
+          <div class="ticket-col">
+            <div class="ticket-label">Booking ID</div>
+            <div style="font-family:monospace;font-size:0.85rem;font-weight:700;letter-spacing:0.5px" id="booking-id">…</div>
+          </div>
+          <div class="ticket-col right">
+            <div class="ticket-label">Total Paid</div>
+            <div style="font-size:1.4rem;font-weight:800;font-family:'Outfit',sans-serif;color:var(--success)" id="total-amount">…</div>
+          </div>
+        </div>
+
+        <div class="qr-wrap">
+          <img id="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BMS-BOOKING" alt="QR Code">
+        </div>
+        <p style="text-align:center;font-size:0.68rem;color:var(--text-dim);margin-top:10px;text-transform:uppercase;letter-spacing:2px">
+          Scan at cinema entrance
+        </p>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:80px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <a href="my-bookings.html" class="btn btn-ghost btn-lg">🎟 My Tickets</a>
+      <button class="btn btn-primary btn-lg" onclick="window.print()">🖨 Print Ticket</button>
+      <a href="index.html" class="btn btn-ghost btn-lg">← Browse More</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="container footer-bottom">
+    <span>© 2024 BookMyShow Clone — 🔒 Secure Booking</span>
+    <span>Made with ❤️ for cinema lovers</span>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const bookingId = params.get('bookingId');
+  if (!bookingId) { window.location.href = 'index.html'; return; }
+
+  try {
+    const booking = await fetchAPI(`/bookings/${bookingId}`);
+    document.title = `🎉 ${booking.title} — Booking Confirmed`;
+
+    document.getElementById('movie-title').textContent = booking.title;
+    document.getElementById('movie-genre').textContent = `${booking.genre || ''} • ${booking.language || ''}`;
+    document.getElementById('theatre-name').textContent = booking.theatre_name;
+    document.getElementById('theatre-city').textContent = booking.location + (booking.city ? ', ' + booking.city : '');
+    document.getElementById('screen-name').textContent = booking.screen_name;
+    document.getElementById('show-time').textContent = `${formatDate(booking.show_date)} at ${formatTime(booking.show_time)}`;
+    document.getElementById('seat-numbers').textContent = booking.seats?.map(s => `${s.row_no}${s.seat_no}`).join(', ') || '—';
+    document.getElementById('booking-id').textContent = booking.transaction_id || `BMS-${booking.id}`;
+    document.getElementById('total-amount').textContent = formatCurrency(booking.total_amount);
+    document.getElementById('qr-code').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(booking.transaction_id || 'BMS-' + booking.id)}`;
+  } catch (err) {
+    showToast('Could not load booking details: ' + err.message, 'error');
+  }
+});
+</script>
+</body>
+</html>

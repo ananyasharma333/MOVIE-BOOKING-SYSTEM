@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Movie Details — BookMyShow</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="my-bookings.html" id="my-bookings-link" style="display:none">My Tickets</a></li>
+      <li><a href="admin.html" id="admin-link" style="display:none">⚙ Admin</a></li>
+    </ul>
+    <div class="auth-buttons">
+      <a href="login.html" class="btn btn-ghost btn-sm" id="login-link">Login</a>
+      <a href="login.html?signup=true" class="btn btn-primary btn-sm" id="signup-link">Sign Up</a>
+      <div class="user-menu" id="user-menu" style="display:none">
+        <div class="avatar">U</div>
+        <span id="user-name" style="font-size:0.9rem;font-weight:600"></span>
+        <a href="#" data-action="logout" class="btn btn-ghost btn-sm">Logout</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="movie-content">
+  <div class="loading-container" style="padding:100px 0">
+    <div class="spinner"></div>
+    <p class="loading-text">Loading movie details…</p>
+  </div>
+</main>
+
+<section class="container section" id="shows-section" style="display:none">
+  <h2 class="section-title">Theatres &amp; Showtimes</h2>
+  <p id="shows-date-info" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px"></p>
+  <div id="theatres-list"></div>
+</section>
+
+<footer>
+  <div class="container footer-bottom" style="border-top:1px solid var(--border)">
+    <span>© 2024 BookMyShow Clone</span>
+    <a href="index.html">← Back to Movies</a>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const movieId = params.get('id');
+  const contentEl = document.getElementById('movie-content');
+
+  if (!movieId) { window.location.href = 'index.html'; return; }
+
+  try {
+    const [movie, shows] = await Promise.all([
+      fetchAPI(`/movies/${movieId}`),
+      fetchAPI(`/movies/${movieId}/shows`)
+    ]);
+
+    document.title = `${movie.title} — BookMyShow`;
+
+    const releaseDate = movie.release_date ? new Date(movie.release_date).toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'numeric' }) : '';
+    const genres = (movie.genre || '').split(',').map(g => `<span class="badge badge-genre">${g.trim()}</span>`).join('');
+
+    contentEl.innerHTML = `
+      <section class="movie-hero" style="background-image:url('${movie.poster_url}')">
+        <div class="container movie-hero-content">
+          <img src="${movie.poster_url || ''}" alt="${movie.title}" class="movie-poster-detail"
+               onerror="this.src='https://via.placeholder.com/240x360/17181c/555?text=No+Poster'">
+          <div class="movie-detail-info">
+            <h1>${movie.title}</h1>
+            <div class="movie-badges">
+              <span class="badge badge-rating">⭐ ${movie.rating}/10</span>
+              <span class="badge">🕐 ${movie.duration_minutes} min</span>
+              <span class="badge">🌐 ${movie.language}</span>
+              ${releaseDate ? `<span class="badge">📅 ${releaseDate}</span>` : ''}
+              ${genres}
+            </div>
+            <p style="color:var(--text-muted);margin-bottom:16px;line-height:1.8">${movie.description || ''}</p>
+            ${movie.cast ? `<p style="font-size:0.88rem;color:var(--text-dim);margin-bottom:24px">🎭 <strong style="color:var(--text-muted)">Cast:</strong> ${movie.cast}</p>` : ''}
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <a href="#shows-section" class="btn btn-primary btn-lg">🎟 Book Tickets</a>
+              ${movie.trailer_url ? `<a href="${movie.trailer_url}" target="_blank" class="btn btn-ghost btn-lg">▶ Watch Trailer</a>` : ''}
+            </div>
+          </div>
+        </div>
+      </section>`;
+
+    const showsSection = document.getElementById('shows-section');
+    const theatresList = document.getElementById('theatres-list');
+
+    if (!shows.length) {
+      showsSection.style.display = 'block';
+      document.getElementById('shows-date-info').textContent = '';
+      theatresList.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>No Shows Available</h3><p>Check back later for upcoming shows.</p></div>`;
+      return;
+    }
+
+    showsSection.style.display = 'block';
+    document.getElementById('shows-date-info').textContent = `Showing ${shows.length} shows across ${new Set(shows.map(s=>s.theatre_id)).size} theatre(s).`;
+
+    // Group by theatre
+    const theatresMap = {};
+    shows.forEach(show => {
+      if (!theatresMap[show.theatre_id]) {
+        theatresMap[show.theatre_id] = { name: show.theatre_name, location: show.location, city: show.city, facilities: show.facilities, shows: [] };
+      }
+      theatresMap[show.theatre_id].shows.push(show);
+    });
+
+    theatresList.innerHTML = Object.values(theatresMap).map(th => `
+      <div class="theatre-card">
+        <div class="theatre-header">
+          <div>
+            <div class="theatre-name">📍 ${th.name}</div>
+            <div class="theatre-location">${th.location}, ${th.city}</div>
+          </div>
+          <div class="theatre-tags">
+            ${(th.facilities||'').split(',').map(f=>`<span class="theatre-tag">${f.trim()}</span>`).join('')}
+          </div>
+        </div>
+        <div class="show-timings">
+          ${th.shows.map(show => `
+            <button class="show-btn" onclick="goToBooking(${show.show_id})">
+              ${formatTime(show.show_time)}
+              <span class="show-price">₹${show.price_regular} / ₹${show.price_vip} VIP</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    contentEl.innerHTML = `<div class="empty-state" style="padding:100px 0"><div class="empty-icon">❌</div><h3>Error Loading Movie</h3><p>${err.message}</p></div>`;
+  }
+});
+
+function goToBooking(showId) {
+  if (!isLoggedIn()) {
+    window.location.href = `login.html?redirect=${encodeURIComponent('booking.html?showId=' + showId)}`;
+    return;
+  }
+  window.location.href = `booking.html?showId=${showId}`;
+}
+</script>
+</body>
+</html>

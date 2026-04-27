@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tickets — BookMyShow</title>
+  <meta name="description" content="View all your booked movie tickets in one place.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="container navbar">
+    <a href="index.html" class="logo">BOOK<span>MY</span>SHOW</a>
+    <ul class="nav-links">
+      <li><a href="index.html">Movies</a></li>
+      <li><a href="my-bookings.html" class="active">My Tickets</a></li>
+      <li><a href="admin.html" id="admin-link" style="display:none">⚙ Admin</a></li>
+    </ul>
+    <div class="auth-buttons">
+      <div class="user-menu" id="user-menu" style="display:none">
+        <div class="avatar">U</div>
+        <span id="user-name" style="font-size:0.9rem;font-weight:600"></span>
+        <a href="#" data-action="logout" class="btn btn-ghost btn-sm">Logout</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container section">
+  <div class="section-header">
+    <h1 class="section-title">My Tickets</h1>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select id="status-filter" class="form-control" style="width:auto;padding:8px 14px;border-radius:8px;font-size:0.85rem" onchange="filterBookings()">
+        <option value="">All Bookings</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="bookings-container">
+    <div class="loading-container"><div class="spinner"></div><p class="loading-text">Loading your tickets…</p></div>
+  </div>
+</main>
+
+<footer>
+  <div class="container footer-bottom">
+    <span>© 2024 BookMyShow Clone. All rights reserved.</span>
+    <a href="index.html">← Back to Movies</a>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+<script>
+let allBookings = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!requireLogin()) return;
+  await loadMyBookings();
+});
+
+async function loadMyBookings() {
+  const container = document.getElementById('bookings-container');
+  renderLoading(container, 'Loading your tickets…');
+  try {
+    allBookings = await fetchAPI('/bookings/my');
+    filterBookings();
+  } catch (err) {
+    renderError(container, 'Could not load bookings. ' + err.message);
+  }
+}
+
+function filterBookings() {
+  const filter = document.getElementById('status-filter').value;
+  const filtered = filter ? allBookings.filter(b => b.status === filter) : allBookings;
+  renderBookings(filtered);
+}
+
+function renderBookings(bookings) {
+  const container = document.getElementById('bookings-container');
+
+  if (!bookings.length) {
+    container.innerHTML = `
+      <div class="empty-state" style="margin-top:40px">
+        <div class="empty-icon">🎟</div>
+        <h3>No bookings yet</h3>
+        <p>You haven't booked any tickets. Browse movies and start booking!</p>
+        <a href="index.html" class="btn btn-primary" style="margin-top:20px">🎬 Browse Movies</a>
+      </div>`;
+    return;
+  }
+
+  const upcoming = bookings.filter(b => b.status === 'confirmed' && new Date(b.show_date) >= new Date());
+  const past = bookings.filter(b => b.status !== 'confirmed' || new Date(b.show_date) < new Date());
+
+  let html = '';
+
+  if (upcoming.length) {
+    html += `<h3 style="font-size:1.1rem;color:var(--text-muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;font-size:0.78rem;font-weight:700">Upcoming (${upcoming.length})</h3>`;
+    html += upcoming.map(b => renderTicketCard(b, true)).join('');
+  }
+  if (past.length) {
+    html += `<h3 style="font-size:1.1rem;color:var(--text-muted);margin:32px 0 16px;text-transform:uppercase;letter-spacing:1px;font-size:0.78rem;font-weight:700">Past / Cancelled (${past.length})</h3>`;
+    html += past.map(b => renderTicketCard(b, false)).join('');
+  }
+
+  container.innerHTML = html;
+}
+
+function renderTicketCard(b, isUpcoming) {
+  const cancelled = b.status === 'cancelled';
+  return `
+    <div class="booking-ticket animate-fade-up" style="margin-bottom:16px;${cancelled ? 'opacity:0.6' : ''}">
+      <img class="ticket-poster"
+        src="${b.poster_url || ''}"
+        onerror="this.src='https://via.placeholder.com/90x140/111113/444?text=🎬';this.style.background='var(--bg-card-2)'"
+        alt="${b.title}">
+      <div class="ticket-info">
+        <div class="ticket-movie-title">${b.title}</div>
+        <div class="ticket-meta">${b.genre || ''} • ${b.screen_name}</div>
+        <div class="ticket-details">
+          <div class="ticket-detail">
+            <span class="ticket-detail-label">📅 Date</span>
+            <span class="ticket-detail-val">${formatDate(b.show_date)}</span>
+          </div>
+          <div class="ticket-detail">
+            <span class="ticket-detail-label">🕐 Time</span>
+            <span class="ticket-detail-val">${formatTime(b.show_time)}</span>
+          </div>
+          <div class="ticket-detail">
+            <span class="ticket-detail-label">🏛 Theatre</span>
+            <span class="ticket-detail-val">${b.theatre_name}, ${b.city}</span>
+          </div>
+          <div class="ticket-detail">
+            <span class="ticket-detail-label">💺 Seats</span>
+            <span class="ticket-detail-val">${b.seats || '—'}</span>
+          </div>
+        </div>
+      </div>
+      <div class="ticket-side">
+        <div style="text-align:center">
+          <div class="ticket-label">Amount</div>
+          <div style="font-size:1.3rem;font-weight:800;font-family:'Outfit',sans-serif;color:${cancelled?'var(--text-muted)':'var(--gold)'}">
+            ${formatCurrency(b.total_amount)}
+          </div>
+        </div>
+        <span class="status-pill status-${(b.status||'confirmed').toLowerCase()}">${b.status}</span>
+        ${isUpcoming && !cancelled
+          ? `<a href="confirmation.html?bookingId=${b.id}" class="btn btn-primary btn-sm">View Ticket</a>
+             <button class="btn btn-danger btn-sm" onclick="cancelBooking(${b.id})">Cancel</button>`
+          : `<a href="confirmation.html?bookingId=${b.id}" class="btn btn-ghost btn-sm">Details</a>`}
+      </div>
+    </div>`;
+}
+
+async function cancelBooking(id) {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+  try {
+    await fetchAPI(`/bookings/${id}/cancel`, { method: 'PUT' });
+    showToast('Booking cancelled successfully', 'info');
+    await loadMyBookings();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+</script>
+</body>
+</html>
