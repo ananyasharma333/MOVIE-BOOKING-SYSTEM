@@ -1,0 +1,88 @@
+-- Create database
+CREATE DATABASE IF NOT EXISTS movie_booking_system;
+USE movie_booking_system;
+
+-- Movies table
+CREATE TABLE movies (
+    movie_id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    genre VARCHAR(100),
+    duration_minutes INT CHECK (duration_minutes > 0),
+    release_date DATE,
+    rating VARCHAR(10),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Theaters table
+CREATE TABLE theaters (
+    theater_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    total_screens INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Screens table
+CREATE TABLE screens (
+    screen_id INT PRIMARY KEY AUTO_INCREMENT,
+    theater_id INT NOT NULL,
+    screen_number INT NOT NULL,
+    total_seats INT NOT NULL CHECK (total_seats > 0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (theater_id) REFERENCES theaters(theater_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_screen (theater_id, screen_number)
+);
+
+-- Seats table
+CREATE TABLE seats (
+    seat_id INT PRIMARY KEY AUTO_INCREMENT,
+    screen_id INT NOT NULL,
+    seat_row VARCHAR(5) NOT NULL,
+    seat_number INT NOT NULL,
+    seat_type ENUM('Regular', 'Premium', 'VIP') DEFAULT 'Regular',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (screen_id) REFERENCES screens(screen_id) ON DELETE CASCADE,
+    UNIQUE KEY unique_seat (screen_id, seat_row, seat_number)
+);
+
+-- Shows table
+CREATE TABLE shows (
+    show_id INT PRIMARY KEY AUTO_INCREMENT,
+    movie_id INT NOT NULL,
+    screen_id INT NOT NULL,
+    show_date DATE NOT NULL,
+    show_time TIME NOT NULL,
+    base_price DECIMAL(10,2) NOT NULL CHECK (base_price > 0),
+    status ENUM('Scheduled', 'Cancelled', 'Completed') DEFAULT 'Scheduled',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (movie_id) REFERENCES movies(movie_id),
+    FOREIGN KEY (screen_id) REFERENCES screens(screen_id),
+    UNIQUE KEY unique_show (screen_id, show_date, show_time)
+);
+
+-- Bookings table
+CREATE TABLE bookings (
+    booking_id INT PRIMARY KEY AUTO_INCREMENT,
+    show_id INT NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    booking_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(10,2) NOT NULL,
+    payment_status ENUM('Pending', 'Completed', 'Failed', 'Refunded') DEFAULT 'Pending',
+    FOREIGN KEY (show_id) REFERENCES shows(show_id)
+);
+
+-- Booking_seats table (junction table)
+CREATE TABLE booking_seats (
+    booking_id INT NOT NULL,
+    seat_id INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (booking_id, seat_id),
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (seat_id) REFERENCES seats(seat_id)
+);
+
+-- Indexes for better performance
+CREATE INDEX idx_show_date ON shows(show_date);
+CREATE INDEX idx_booking_email ON bookings(customer_email);
+CREATE INDEX idx_seat_screen ON seats(screen_id);

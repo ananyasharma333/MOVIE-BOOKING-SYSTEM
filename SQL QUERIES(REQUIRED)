@@ -1,0 +1,81 @@
+-- 1. Check seat availability for a show
+SELECT 
+    s.seat_id,
+    s.seat_row,
+    s.seat_number,
+    s.seat_type,
+    CASE 
+        WHEN bs.seat_id IS NULL THEN 'Available'
+        ELSE 'Booked'
+    END AS status
+FROM seats s
+LEFT JOIN (
+    SELECT bs.seat_id
+    FROM booking_seats bs
+    JOIN bookings b ON bs.booking_id = b.booking_id
+    WHERE b.show_id = 1 
+    AND b.payment_status = 'Completed'
+) bs ON s.seat_id = bs.seat_id
+WHERE s.screen_id = 1
+ORDER BY s.seat_row, s.seat_number;
+
+-- 2. Get booking history for a customer
+SELECT 
+    b.booking_id,
+    m.title AS movie_title,
+    t.name AS theater_name,
+    s.show_date,
+    s.show_time,
+    b.total_amount,
+    b.payment_status,
+    b.booking_time
+FROM bookings b
+JOIN shows s ON b.show_id = s.show_id
+JOIN movies m ON s.movie_id = m.movie_id
+JOIN screens scr ON s.screen_id = scr.screen_id
+JOIN theaters t ON scr.theater_id = t.theater_id
+WHERE b.customer_email = 'customer@example.com'
+ORDER BY b.booking_time DESC;
+
+-- 3. Revenue report by theater
+SELECT 
+    t.name AS theater_name,
+    SUM(b.total_amount) AS total_revenue,
+    COUNT(b.booking_id) AS total_bookings
+FROM bookings b
+JOIN shows s ON b.show_id = s.show_id
+JOIN screens scr ON s.screen_id = scr.screen_id
+JOIN theaters t ON scr.theater_id = t.theater_id
+WHERE b.payment_status = 'Completed'
+GROUP BY t.theater_id, t.name
+ORDER BY total_revenue DESC;
+
+-- 4. Occupancy rate by show
+SELECT 
+    s.show_id,
+    m.title AS movie_title,
+    s.show_date,
+    s.show_time,
+    COUNT(DISTINCT bs.seat_id) AS booked_seats,
+    scr.total_seats,
+    ROUND((COUNT(DISTINCT bs.seat_id) / scr.total_seats) * 100, 2) AS occupancy_rate
+FROM shows s
+JOIN movies m ON s.movie_id = m.movie_id
+JOIN screens scr ON s.screen_id = scr.screen_id
+LEFT JOIN bookings b ON s.show_id = b.show_id AND b.payment_status = 'Completed'
+LEFT JOIN booking_seats bs ON b.booking_id = bs.booking_id
+WHERE s.show_date = '2024-02-15'
+GROUP BY s.show_id, m.title, s.show_date, s.show_time, scr.total_seats;
+
+-- 5. Popular movies by booking count
+SELECT 
+    m.title,
+    COUNT(b.booking_id) AS total_bookings,
+    SUM(b.total_amount) AS total_revenue
+FROM movies m
+JOIN shows s ON m.movie_id = s.movie_id
+JOIN bookings b ON s.show_id = b.show_id
+WHERE b.payment_status = 'Completed'
+GROUP BY m.movie_id, m.title
+ORDER BY total_bookings DESC
+LIMIT 5;
