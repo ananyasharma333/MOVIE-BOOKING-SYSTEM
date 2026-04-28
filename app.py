@@ -799,6 +799,46 @@ def admin_get_users(current_user):
     conn.close()
     return jsonify([dict(row) for row in users])
 
+# --- Admin: SQL Console ---
+@app.route('/api/admin/sql', methods=['POST'])
+@admin_required
+def admin_sql_console(current_user):
+    data = request.json
+    query = data.get('query', '').strip()
+    
+    if not query:
+        return jsonify({'error': 'No query provided'}), 400
+        
+    # Security check: prevent some very destructive operations if desired, 
+    # but since it's an admin console, we trust the admin.
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        
+        if query.lower().startswith('select') or query.lower().startswith('pragma') or query.lower().startswith('explain'):
+            rows = cursor.fetchall()
+            columns = [column[0] for column in cursor.description] if cursor.description else []
+            result = {
+                'type': 'select',
+                'columns': columns,
+                'rows': [list(row) for row in rows],
+                'count': len(rows)
+            }
+        else:
+            conn.commit()
+            result = {
+                'type': 'update',
+                'message': 'Query executed successfully',
+                'rowsAffected': conn.total_changes
+            }
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
 # --- Admin: Screens ---
 @app.route('/api/admin/screens', methods=['GET'])
 @admin_required

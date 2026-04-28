@@ -34,6 +34,7 @@
       <li><a href="#" data-section="shows">📅 Showtimes</a></li>
       <li><a href="#" data-section="bookings">🎟 Bookings</a></li>
       <li><a href="#" data-section="users">👥 Users</a></li>
+      <li><a href="#" data-section="sql">💻 SQL Terminal</a></li>
     </ul>
   </aside>
 
@@ -170,6 +171,47 @@
           <tbody id="users-table-body"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ===== SQL TERMINAL SECTION ===== -->
+    <div class="admin-section" id="section-sql">
+      <div style="margin-bottom:32px">
+        <h1 class="admin-section-title">SQL Terminal</h1>
+        <p class="admin-section-sub">Direct database access. Be careful with UPDATE/DELETE!</p>
+      </div>
+      
+      <div class="card" style="padding:24px;margin-bottom:24px">
+        <div class="form-group">
+          <label>Enter SQL Query</label>
+          <textarea id="sql-query-input" class="form-control" rows="6" style="font-family:monospace;font-size:0.95rem;background:#0f172a;color:#38bdf8;padding:16px;border:none" placeholder="SELECT * FROM movies LIMIT 5;"></textarea>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;gap:12px">
+            <button class="btn btn-primary" onclick="runSqlQuery()">⚡ Execute Query</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('sql-query-input').value = ''">Clear</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-ghost" onclick="setSqlQuery('SELECT * FROM users')">Users</button>
+            <button class="btn btn-sm btn-ghost" onclick="setSqlQuery('SELECT * FROM movies')">Movies</button>
+            <button class="btn btn-sm btn-ghost" onclick="setSqlQuery('SELECT * FROM bookings')">Bookings</button>
+            <button class="btn btn-sm btn-ghost" onclick="setSqlQuery(\'SELECT name FROM sqlite_master WHERE type=\\\'table\\\'\')">Tables</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="sql-result-container" class="data-table-wrap" style="display:none;max-height:500px;overflow:auto">
+        <div style="padding:12px 16px;background:var(--bg-card-2);font-size:0.8rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span id="sql-result-meta"></span>
+          <button class="btn btn-sm btn-ghost" onclick="copySqlResult()">Copy JSON</button>
+        </div>
+        <table id="sql-result-table">
+          <thead id="sql-result-head"></thead>
+          <tbody id="sql-result-body"></tbody>
+        </table>
+      </div>
+      
+      <div id="sql-error" class="alert alert-danger" style="display:none;margin-top:20px"></div>
+      <div id="sql-success" class="alert alert-success" style="display:none;margin-top:20px"></div>
     </div>
 
   </main>
@@ -627,6 +669,66 @@ async function loadUsersTable() {
         <td style="font-size:0.8rem;color:var(--text-muted)">${formatDate(u.created_at)}</td>
       </tr>`).join('');
   } catch (err) { showToast('Failed to load users', 'error'); }
+}
+
+/* =================== SQL TERMINAL =================== */
+function setSqlQuery(q) {
+  document.getElementById('sql-query-input').value = q;
+}
+
+async function runSqlQuery() {
+  const query = document.getElementById('sql-query-input').value.trim();
+  if (!query) return;
+
+  const resultContainer = document.getElementById('sql-result-container');
+  const errorEl = document.getElementById('sql-error');
+  const successEl = document.getElementById('sql-success');
+  const metaEl = document.getElementById('sql-result-meta');
+  const head = document.getElementById('sql-result-head');
+  const body = document.getElementById('sql-result-body');
+
+  // Reset
+  resultContainer.style.display = 'none';
+  errorEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  try {
+    const res = await fetchAPI('/admin/sql', {
+      method: 'POST',
+      body: JSON.stringify({ query })
+    });
+
+    if (res.type === 'select') {
+      resultContainer.style.display = 'block';
+      metaEl.textContent = `Returned ${res.count} rows`;
+      
+      // Render Table
+      head.innerHTML = `<tr>${res.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
+      if (res.rows.length === 0) {
+        body.innerHTML = `<tr><td colspan="${res.columns.length}" style="text-align:center;padding:40px">Empty set</td></tr>`;
+      } else {
+        body.innerHTML = res.rows.map(row => `
+          <tr>${row.map(val => `<td style="font-size:0.85rem">${val === null ? '<em style="color:var(--text-muted)">NULL</em>' : val}</td>`).join('')}</tr>
+        `).join('');
+      }
+      window.lastSqlResult = res;
+    } else {
+      successEl.style.display = 'block';
+      successEl.textContent = `${res.message}. Rows affected: ${res.rowsAffected}`;
+      showToast('Query executed successfully', 'success');
+      loadStats(); // Update stats in case things changed
+    }
+  } catch (err) {
+    errorEl.style.display = 'block';
+    errorEl.textContent = 'Error: ' + err.message;
+    showToast('Query failed', 'error');
+  }
+}
+
+function copySqlResult() {
+  if (!window.lastSqlResult) return;
+  navigator.clipboard.writeText(JSON.stringify(window.lastSqlResult.rows, null, 2));
+  showToast('Results copied to clipboard', 'info');
 }
 </script>
 </body>

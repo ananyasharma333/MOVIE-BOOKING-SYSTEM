@@ -1,259 +1,173 @@
-require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql2/promise');
+const dotenv = require('dotenv');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
+const connectDB = require('./config/db');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 
+// Models
+const User = require('./models/User');
+const Movie = require('./models/Movie');
+const { Theatre, Screen, Seat, Show, Booking } = require('./models/BookingModels');
+
+dotenv.config();
+connectDB();
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json());
+app.use(cors());
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Database Connection
-const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'movie_booking',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-};
-
-let pool;
-try {
-    pool = mysql.createPool(dbConfig);
-    console.log("Database connection pool created.");
-} catch (err) {
-    console.error("Error creating database pool:", err);
-}
-
-// Authentication Middleware
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, process.env.JWT_SECRET || 'secretkey', (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
-
-// ==========================================
-// API ROUTES
-// ==========================================
-
-// --- Auth Routes ---
-app.post('/api/auth/register', async (req, res) => {
+const protect = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
-        const { name, email, password, phone } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const [result] = await pool.execute(
-            'INSERT INTO users (name, email, password, phone) VALUES (?, ?, ?, ?)',
-            [name, email, hashedPassword, phone]
-        );
-        res.status(201).json({ message: 'User registered successfully', userId: result.insertId });
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select('-password');
+      next();
     } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ error: 'Email already exists' });
-        }
-        res.status(500).json({ error: error.message });
+      res.status(401).json({ error: 'Not authorized, token failed' });
     }
+  }
+  if (!token) res.status(401).json({ error: 'Not authorized, no token' });
+};
+
+const admin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ error: 'Not authorized as an admin' });
+  }
+};
+
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
+
+// ==========================================
+// ROUTES
+// ==========================================
+
+// --- Auth ---
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password, phone } = req.body;
+  const userExists = await User.findOne({ email });
+  if (userExists) return res.status(400).json({ error: 'User already exists' });
+  
+  const user = await User.create({ name, email, password, phone });
+  if (user) {
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user._id)
+    });
+  } else {
+    res.status(400).json({ error: 'Invalid user data' });
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const [users] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
-        if (users.length === 0) return res.status(400).json({ error: 'User not found' });
-
-        const user = users[0];
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) return res.status(400).json({ error: 'Invalid password' });
-
-        const token = jwt.sign(
-            { id: user.id, role: user.role, name: user.name },
-            process.env.JWT_SECRET || 'secretkey',
-            { expiresIn: '24h' }
-        );
-        res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+  if (user && (await user.matchPassword(password))) {
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user._id)
+    });
+  } else {
+    res.status(401).json({ error: 'Invalid email or password' });
+  }
 });
 
-app.get('/api/auth/me', authenticateToken, (req, res) => {
-    res.json(req.user);
-});
-
-// --- Movie Routes ---
+// --- Movies ---
 app.get('/api/movies', async (req, res) => {
-    try {
-        const [movies] = await pool.execute('SELECT * FROM movies ORDER BY release_date DESC');
-        res.json(movies);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  const movies = await Movie.find({});
+  res.json(movies);
 });
 
 app.get('/api/movies/:id', async (req, res) => {
-    try {
-        const [movies] = await pool.execute('SELECT * FROM movies WHERE id = ?', [req.params.id]);
-        if (movies.length === 0) return res.status(404).json({ error: 'Movie not found' });
-        res.json(movies[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  const movie = await Movie.findById(req.params.id);
+  if (movie) res.json(movie);
+  else res.status(404).json({ error: 'Movie not found' });
 });
 
-// --- Show & Theatre Routes ---
+// --- Shows ---
 app.get('/api/movies/:id/shows', async (req, res) => {
-    try {
-        const movieId = req.params.id;
-        const [shows] = await pool.execute(`
-            SELECT s.id as show_id, s.show_date, s.show_time, s.price_regular, s.price_vip,
-                   sc.id as screen_id, sc.name as screen_name,
-                   t.id as theatre_id, t.name as theatre_name, t.location, t.city, t.facilities
-            FROM shows s
-            JOIN screens sc ON s.screen_id = sc.id
-            JOIN theatres t ON sc.theatre_id = t.id
-            WHERE s.movie_id = ? AND s.show_date >= CURDATE()
-            ORDER BY s.show_date, s.show_time
-        `, [movieId]);
-        res.json(shows);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  const shows = await Show.find({ movie: req.params.id })
+    .populate({
+      path: 'screen',
+      populate: { path: 'theatre' }
+    });
+  res.json(shows);
 });
 
-// --- Seat & Booking Routes ---
+// --- Seats ---
 app.get('/api/shows/:id/seats', async (req, res) => {
-    try {
-        const showId = req.params.id;
-        // Get show details to find screen_id
-        const [shows] = await pool.execute('SELECT screen_id FROM shows WHERE id = ?', [showId]);
-        if (shows.length === 0) return res.status(404).json({ error: 'Show not found' });
-        const screenId = shows[0].screen_id;
+  const show = await Show.findById(req.params.id);
+  if (!show) return res.status(404).json({ error: 'Show not found' });
+  
+  const seats = await Seat.find({ screen: show.screen });
+  const bookings = await Booking.find({ show: show._id, status: 'confirmed' });
+  const bookedSeatIds = bookings.flatMap(b => b.seats.map(s => s.toString()));
 
-        // Get all seats for the screen
-        const [seats] = await pool.execute('SELECT * FROM seats WHERE screen_id = ? ORDER BY row_no, seat_no', [screenId]);
-
-        // Get booked seats for this show
-        const [bookedSeatsReq] = await pool.execute(`
-            SELECT seat_id FROM booked_seats bs
-            JOIN bookings b ON bs.booking_id = b.id
-            WHERE b.show_id = ? AND b.status IN ('confirmed', 'pending')
-        `, [showId]);
-
-        const bookedSeatIds = bookedSeatsReq.map(bs => bs.seat_id);
-
-        // Map status to seats
-        const seatLayout = seats.map(seat => ({
-            ...seat,
-            status: bookedSeatIds.includes(seat.id) ? 'booked' : 'available'
-        }));
-
-        res.json(seatLayout);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+  const seatLayout = seats.map(seat => ({
+    ...seat.toObject(),
+    status: bookedSeatIds.includes(seat._id.toString()) ? 'booked' : 'available'
+  }));
+  
+  res.json(seatLayout);
 });
 
-app.post('/api/bookings', authenticateToken, async (req, res) => {
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        const { showId, seatIds, totalAmount } = req.body;
-        const userId = req.user.id;
-
-        // 1. Verify seats are still available
-        const seatPlaceholders = seatIds.map(() => '?').join(',');
-        const [booked] = await connection.execute(`
-            SELECT seat_id FROM booked_seats bs
-            JOIN bookings b ON bs.booking_id = b.id
-            WHERE b.show_id = ? AND b.status IN ('confirmed', 'pending')
-            AND bs.seat_id IN (${seatPlaceholders})
-        `, [showId, ...seatIds]);
-
-        if (booked.length > 0) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'One or more selected seats are already booked' });
-        }
-
-        // 2. Create Booking
-        const transactionId = 'TXN' + Date.now() + Math.floor(Math.random() * 1000);
-        const [bookingResult] = await connection.execute(
-            'INSERT INTO bookings (user_id, show_id, total_amount, status, transaction_id) VALUES (?, ?, ?, ?, ?)',
-            [userId, showId, totalAmount, 'confirmed', transactionId]
-        );
-        const bookingId = bookingResult.insertId;
-
-        // 3. Insert Booked Seats
-        for (const seatId of seatIds) {
-            await connection.execute(
-                'INSERT INTO booked_seats (booking_id, seat_id) VALUES (?, ?)',
-                [bookingId, seatId]
-            );
-        }
-
-        // 4. Create Payment entry (Simulated success)
-        await connection.execute(
-            'INSERT INTO payments (booking_id, amount, payment_method, payment_status) VALUES (?, ?, ?, ?)',
-            [bookingId, totalAmount, 'card', 'success']
-        );
-
-        await connection.commit();
-        res.status(201).json({ message: 'Booking successful', bookingId, transactionId });
-    } catch (error) {
-        await connection.rollback();
-        res.status(500).json({ error: error.message });
-    } finally {
-        connection.release();
-    }
+// --- Bookings ---
+app.post('/api/bookings', protect, async (req, res) => {
+  const { showId, seatIds, totalAmount } = req.body;
+  const booking = await Booking.create({
+    user: req.user._id,
+    show: showId,
+    seats: seatIds,
+    totalAmount,
+    transactionId: 'BMS' + Date.now()
+  });
+  res.status(201).json(booking);
 });
 
-app.get('/api/bookings/:id', authenticateToken, async (req, res) => {
-    try {
-        const bookingId = req.params.id;
-        const [bookings] = await pool.execute(`
-            SELECT b.*, m.title, m.poster_url, s.show_date, s.show_time, 
-                   t.name as theatre_name, sc.name as screen_name
-            FROM bookings b
-            JOIN shows s ON b.show_id = s.id
-            JOIN movies m ON s.movie_id = m.id
-            JOIN screens sc ON s.screen_id = sc.id
-            JOIN theatres t ON sc.theatre_id = t.id
-            WHERE b.id = ? AND (b.user_id = ? OR ? = 'admin')
-        `, [bookingId, req.user.id, req.user.role]);
-
-        if (bookings.length === 0) return res.status(404).json({ error: 'Booking not found' });
-
-        const [seats] = await pool.execute(`
-            SELECT s.row_no, s.seat_no, s.type
-            FROM booked_seats bs
-            JOIN seats s ON bs.seat_id = s.id
-            WHERE bs.booking_id = ?
-        `, [bookingId]);
-
-        res.json({ ...bookings[0], seats });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+app.get('/api/bookings/my', protect, async (req, res) => {
+  const bookings = await Booking.find({ user: req.user._id })
+    .populate('show')
+    .populate({
+      path: 'show',
+      populate: { path: 'movie' }
+    });
+  res.json(bookings);
 });
 
-// Fallback for SPA (if we use client side routing later, else serve static html)
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// --- Admin ---
+app.get('/api/admin/stats', protect, admin, async (req, res) => {
+  const totalMovies = await Movie.countDocuments();
+  const totalBookings = await Booking.countDocuments({ status: 'confirmed' });
+  const totalUsers = await User.countDocuments({ role: 'user' });
+  const revenue = await Booking.aggregate([
+    { $match: { status: 'confirmed' } },
+    { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+  ]);
+
+  res.json({
+    totalMovies,
+    totalBookings,
+    totalUsers,
+    totalRevenue: revenue[0] ? revenue[0].total : 0
+  });
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Serve Frontend
+app.use(express.static(path.join(__dirname, '/frontend/dist')));
+app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'frontend', 'dist', 'index.html')));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
